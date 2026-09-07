@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>桜願 · Wishlist Ku</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;500;600;700&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script>
+<style>
+  :root{
+    --bg:#F6F1E7; --bg-alt:#EFE7D8; --surface:#FFFDF8; --surface-2:#FBF6EC;
+    --text:#2B2622; --text-soft:#7a6f62; --border:#DDD3C0;
+    --sakura:#E4A0B7; --sakura-deep:#C97C97; --sakura-tint:#F8E3EA;
+    --matsu:#5F8566; --aka:#BC4A3C; --kin:#B5901F;
+    --shadow-rgb:43,38,34;
+    --radius-card: 4px 14px 4px 14px;
+    --font-display:'Shippori Mincho', serif;
+    --font-body:'Zen Maru Gothic', sans-serif;
+  }
+  [data-theme="dark"]{
+    --bg:#161C29; --bg-alt:#10141F; --surface:#1F2735; --surface-2:#242D3E;
+    --text:#EDE7DA; --text-soft:#A6ADC1; --border:#333F58;
+    --sakura:#F0AFC4; --sakura-deep:#D98FAA; --sakura-tint:#2c2531;
+    --matsu:#84AE8A; --aka:#E4776291; --aka:#E07764; --kin:#DEBB4E;
+    --shadow-rgb:0,0,0;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--font-body);
+    background:
+      radial-gradient(circle at 15% 8%, rgba(228,160,183,0.10), transparent 40%),
+      radial-gradient(circle at 85% 92%, rgba(95,133,102,0.08), transparent 45%),
+      var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    transition:background .4s ease, color .4s ease;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--sakura); color:#2B2622;}
+  a{color:inherit;}
+  button{font-family:inherit;}
+  .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);}
+
+  /* ---------- Loading overlay ---------- */
+  #loading-overlay{
+    position:fixed;inset:0;z-index:9999;background:var(--bg);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+    transition:opacity .6s ease, visibility .6s ease;
+  }
+  #loading-overlay.hide{opacity:0;visibility:hidden;pointer-events:none;}
+  .torii{width:120px;height:100px;position:relative}
+  .torii svg{width:100%;height:100%;display:block}
+  .torii path,.torii rect{stroke:var(--aka);stroke-linecap:round;fill:none;stroke-width:6;
+    stroke-dasharray:340;stroke-dashoffset:340;animation:draw 1.6s ease forwards;}
+  @keyframes draw{to{stroke-dashoffset:0;}}
+  .loading-kanji{font-family:var(--font-display);font-size:15px;letter-spacing:.5em;color:var(--text-soft);
+    padding-left:.5em;}
+  .loading-bar{width:160px;height:2px;background:var(--border);position:relative;overflow:hidden;border-radius:2px;}
+  .loading-bar span{position:absolute;left:-40%;top:0;height:100%;width:40%;background:var(--sakura-deep);
+    animation:loadbar 1.1s ease-in-out infinite;}
+  @keyframes loadbar{0%{left:-40%;}100%{left:100%;}}
+
+  /* ---------- Sakura petals ---------- */
+  #sakura-canvas{position:fixed;inset:0;z-index:1;pointer-events:none;}
+
+  /* ---------- Layout shell ---------- */
+  .app{position:relative;z-index:2;max-width:1180px;margin:0 auto;padding:20px 20px 60px;}
+  header.app-header{
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding:10px 4px 18px;border-bottom:1px solid var(--border);margin-bottom:18px;flex-wrap:wrap;
+  }
+  .brand{display:flex;align-items:baseline;gap:10px;}
+  .brand .mark{font-size:26px;line-height:1;}
+  .brand h1{font-family:var(--font-display);font-weight:600;font-size:24px;margin:0;letter-spacing:.03em;}
+  .brand .sub{font-size:12px;color:var(--text-soft);letter-spacing:.08em;}
+  .tabs{display:flex;gap:4px;background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:3px;}
+  .tabs button{
+    border:none;background:transparent;padding:7px 16px;border-radius:999px;font-size:13px;cursor:pointer;
+    color:var(--text-soft);transition:.2s;font-family:var(--font-body);
+  }
+  .tabs button.active{background:var(--sakura);color:#33222a;font-weight:700;}
+  [data-theme="dark"] .tabs button.active{color:#241019;}
+  .header-actions{display:flex;gap:8px;align-items:center;}
+  .icon-btn{
+    width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:var(--surface);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:var(--text);
+    transition:transform .15s ease, background .2s;
+  }
+  .icon-btn:hover{transform:translateY(-1px);background:var(--surface-2);}
+  .icon-btn:active{transform:translateY(0);}
+
+  /* ---------- Toolbar ---------- */
+  .toolbar{
+    display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px;
+    background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;
+  }
+  .toolbar input[type=text], .toolbar select{
+    font-family:var(--font-body);font-size:13.5px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);
+    background:var(--surface-2);color:var(--text);outline:none;
+  }
+  .toolbar input[type=text]{flex:1 1 200px;min-width:160px;}
+  .toolbar select{cursor:pointer;}
+  .toolbar input:focus, .toolbar select:focus{border-color:var(--sakura-deep);}
+  .fav-toggle{display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;border:1px solid var(--border);
+    background:var(--surface-2);cursor:pointer;font-size:13px;color:var(--text-soft);user-select:none;}
+  .fav-toggle.active{border-color:var(--kin);color:var(--kin);background:var(--sakura-tint);}
+  .view-toggle{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+  .view-toggle button{border:none;background:var(--surface-2);color:var(--text-soft);padding:8px 10px;cursor:pointer;}
+  .view-toggle button.active{background:var(--sakura);color:#33222a;}
+  [data-theme="dark"] .view-toggle button.active{color:#241019;}
+  .btn{
+    border:none;border-radius:8px;padding:9px 16px;font-size:13.5px;cursor:pointer;font-weight:600;
+    font-family:var(--font-body);transition:filter .15s ease, transform .1s ease;
+  }
+  .btn:active{transform:scale(.97);}
+  .btn-primary{background:var(--aka);color:#fff;}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-ghost{background:var(--surface-2);color:var(--text);border:1px solid var(--border);}
+  .btn-ghost:hover{background:var(--bg-alt);}
+  .btn-soft{background:var(--sakura-tint);color:var(--sakura-deep);}
+  .btn-danger{background:var(--aka);color:#fff;}
+  .btn-outline-danger{background:transparent;border:1px solid var(--aka);color:var(--aka);}
+  .btn-sm{padding:6px 12px;font-size:12.5px;border-radius:7px;}
+
+  /* ---------- Bulk bar ---------- */
+  .bulk-bar{
+    display:none;align-items:center;gap:10px;flex-wrap:wrap;background:var(--sakura-tint);
+    border:1px solid var(--sakura-deep);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:13px;
+  }
+  .bulk-bar.show{display:flex;}
+  .bulk-bar strong{color:var(--sakura-deep);}
+  .bulk-bar .spacer{flex:1;}
+
+  /* ---------- Grid / cards ---------- */
+  .empty-state{
+    text-align:center;padding:60px 20px;color:var(--text-soft);border:1px dashed var(--border);border-radius:16px;
+  }
+  .empty-state .mark{font-size:36px;display:block;margin-bottom:10px;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px;}
+  .list-view .grid{grid-template-columns:1fr;}
+  .card{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-card);
+    box-shadow:0 6px 16px -10px rgba(var(--shadow-rgb),.35);
+    display:flex;flex-direction:column;overflow:hidden;position:relative;transition:transform .18s ease, box-shadow .18s ease;
+  }
+  .card:hover{transform:translateY(-3px);box-shadow:0 12px 22px -12px rgba(var(--shadow-rgb),.4);}
+  .list-view .card{flex-direction:row;}
+  .list-view .card .thumb{width:130px;flex:0 0 130px;height:auto;}
+  .card .select-box{
+    position:absolute;top:8px;left:8px;z-index:2;width:20px;height:20px;cursor:pointer;accent-color:var(--sakura-deep);
+  }
+  .card .fav-btn{
+    position:absolute;top:6px;right:6px;z-index:2;border:none;background:rgba(255,255,255,.75);
+    width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;
+  }
+  [data-theme="dark"] .card .fav-btn{background:rgba(20,20,25,.6);}
+  .card .fav-btn.is-fav{color:var(--kin);}
+  .card .thumb{
+    height:140px;background:var(--bg-alt);display:flex;align-items:center;justify-content:center;overflow:hidden;
+    color:var(--text-soft);font-size:28px;
+  }
+  .card .thumb img{width:100%;height:100%;object-fit:cover;}
+  .card .body{padding:12px 14px;display:flex;flex-direction:column;gap:6px;flex:1;}
+  .card h3{margin:0;font-family:var(--font-display);font-size:16px;font-weight:600;line-height:1.35;}
+  .card .price{color:var(--aka);font-weight:700;font-size:14.5px;}
+  .card .meta-row{display:flex;gap:6px;flex-wrap:wrap;font-size:11px;}
+  .badge{
+    padding:3px 9px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-soft);
+  }
+  .badge.cat{background:var(--sakura-tint);color:var(--sakura-deep);border-color:transparent;}
+  .badge.tag{background:var(--bg-alt);}
+  .card .notes{font-size:12px;color:var(--text-soft);line-height:1.5;max-height:2.8em;overflow:hidden;}
+  .card .actions{display:flex;gap:6px;margin-top:auto;padding-top:8px;}
+  .card .actions .btn{flex:1;}
+
+  /* ---------- Pagination ---------- */
+  .pagination-bar{
+    display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-top:18px;
+    font-size:12.5px;color:var(--text-soft);
+  }
+  .pagination-bar select{padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);}
+  .page-btns{display:flex;gap:4px;}
+  .page-btns button{
+    min-width:30px;height:30px;border-radius:6px;border:1px solid var(--border);background:var(--surface);
+    cursor:pointer;color:var(--text);font-size:12.5px;
+  }
+  .page-btns button.active{background:var(--aka);color:#fff;border-color:var(--aka);}
+  .page-btns button:disabled{opacity:.4;cursor:not-allowed;}
+
+  /* ---------- Modal ---------- */
+  .modal-backdrop{
+    position:fixed;inset:0;background:rgba(20,15,12,.45);backdrop-filter:blur(2px);z-index:100;
+    display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;
+  }
+  .modal-backdrop.open{display:flex;}
+  .modal{
+    background:var(--surface);border-radius:16px;max-width:560px;width:100%;padding:22px 24px 24px;
+    border:1px solid var(--border);box-shadow:0 20px 50px -20px rgba(0,0,0,.5);
+    animation:modalIn .22s ease;
+  }
+  @keyframes modalIn{from{opacity:0;transform:translateY(10px) scale(.98);}to{opacity:1;transform:none;}}
+  .modal h2{font-family:var(--font-display);margin:0 0 14px;font-size:19px;display:flex;align-items:center;gap:8px;}
+  .modal .close-x{margin-left:auto;background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-soft);}
+  .modal-head{display:flex;align-items:center;}
+  .field{margin-bottom:13px;}
+  .field label{display:block;font-size:12.5px;margin-bottom:5px;color:var(--text-soft);font-weight:600;}
+  .field input[type=text], .field input[type=number], .field input[type=url], .field textarea, .field select{
+    width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);
+    color:var(--text);font-family:var(--font-body);font-size:13.5px;outline:none;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus{border-color:var(--sakura-deep);}
+  .field textarea{resize:vertical;min-height:60px;}
+  .field .error{color:var(--aka);font-size:11.5px;margin-top:4px;display:none;}
+  .field.invalid input,.field.invalid textarea{border-color:var(--aka);}
+  .field.invalid .error{display:block;}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .thumb-upload{display:flex;gap:12px;align-items:center;}
+  .thumb-preview{
+    width:70px;height:70px;border-radius:10px;background:var(--bg-alt);display:flex;align-items:center;justify-content:center;
+    overflow:hidden;flex:0 0 70px;color:var(--text-soft);font-size:22px;border:1px solid var(--border);
+  }
+  .thumb-preview img{width:100%;height:100%;object-fit:cover;}
+  .modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;}
+  .tag-input-wrap{
+    display:flex;flex-wrap:wrap;gap:6px;border:1px solid var(--border);background:var(--surface-2);border-radius:8px;
+    padding:7px;min-height:42px;
+  }
+  .tag-chip{background:var(--sakura-tint);color:var(--sakura-deep);border-radius:999px;padding:3px 8px 3px 10px;
+    font-size:11.5px;display:flex;align-items:center;gap:5px;}
+  .tag-chip button{border:none;background:none;cursor:pointer;color:var(--sakura-deep);font-size:12px;}
+  .tag-input-wrap input{border:none;background:none;flex:1;min-width:80px;outline:none;font-size:13px;color:var(--text);}
+
+  /* confirm modal */
+  .confirm-modal{max-width:400px;text-align:center;}
+  .confirm-modal .mark{font-size:32px;display:block;margin-bottom:8px;}
+  .confirm-modal p{color:var(--text-soft);font-size:13.5px;line-height:1.5;}
+  .confirm-modal .modal-footer{justify-content:center;}
+
+  /* activity log */
+  .log-list{max-height:400px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px;}
+  .log-item{border-bottom:1px dashed var(--border);padding-bottom:8px;font-size:12.5px;}
+  .log-item .top{display:flex;justify-content:space-between;color:var(--text-soft);font-size:11px;}
+  .log-item .action{font-weight:700;color:var(--matsu);}
+
+  /* settings */
+  .settings-section{margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+  .settings-section:last-child{border-bottom:none;}
+  .settings-section h3{font-size:13px;margin:0 0 10px;color:var(--text-soft);text-transform:none;letter-spacing:.02em;}
+  .settings-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;font-size:13px;}
+  .export-btns, .import-btns{display:flex;gap:8px;flex-wrap:wrap;}
+  .switch{position:relative;display:inline-block;width:40px;height:22px;}
+  .switch input{opacity:0;width:0;height:0;}
+  .slider-round{position:absolute;cursor:pointer;inset:0;background:var(--border);border-radius:999px;transition:.2s;}
+  .slider-round:before{content:"";position:absolute;height:16px;width:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;}
+  .switch input:checked + .slider-round{background:var(--matsu);}
+  .switch input:checked + .slider-round:before{transform:translateX(18px);}
+
+  /* toast */
+  #toast-container{position:fixed;bottom:18px;right:18px;z-index:300;display:flex;flex-direction:column;gap:8px;max-width:300px;}
+  .toast{
+    background:var(--surface);border-left:4px solid var(--matsu);border-radius:8px;padding:10px 14px;
+    box-shadow:0 8px 20px -8px rgba(0,0,0,.3);font-size:13px;display:flex;gap:8px;align-items:flex-start;
+    animation:toastIn .25s ease;
+  }
+  @keyframes toastIn{from{opacity:0;transform:translateX(20px);}to{opacity:1;transform:none;}}
+  .toast.error{border-color:var(--aka);}
+  .toast.info{border-color:var(--sakura-deep);}
+  .toast.warning{border-color:var(--kin);}
+  .toast .msg{flex:1;}
+  .toast button{border:none;background:none;cursor:pointer;color:var(--text-soft);}
+
+  footer.app-footer{text-align:center;color:var(--text-soft);font-size:11.5px;margin-top:30px;letter-spacing:.03em;}
+
+  @media (max-width:640px){
+    .two-col{grid-template-columns:1fr;}
+    .app-header{flex-direction:column;align-items:flex-start;}
+    .grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.001s !important;transition-duration:.001s !important;}
+  }
+</style>
+</head>
+<body>
+
+<div id="loading-overlay">
+  <div class="torii">
+    <svg viewBox="0 0 120 100">
+      <path d="M10,20 L110,20"/>
+      <path d="M4,32 L116,32"/>
+      <path d="M28,20 L28,90"/>
+      <path d="M92,20 L92,90"/>
+      <path d="M28,52 L92,52"/>
+    </svg>
+  </div>
+  <div class="loading-kanji">読み込み中</div>
+  <div class="loading-bar"><span></span></div>
+</div>
+
+<canvas id="sakura-canvas"></canvas>
+<div id="toast-container" aria-live="polite"></div>
+
+<div class="app">
+  <header class="app-header">
+    <div class="brand">
+      <span class="mark">🌸</span>
+      <div>
+        <h1>桜願 <span style="font-size:14px;font-weight:400;">Wishlist Ku</span></h1>
+        <div class="sub">catatan keinginan &amp; incaran belanja</div>
+      </div>
+    </div>
+    <div class="tabs" role="tablist">
+      <button id="tab-active" class="active" onclick="setTab('active')">Aktif</button>
+      <button id="tab-trash" onclick="setTab('trash')">Sampah (<span id="trash-count">0</span>)</button>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" id="theme-toggle" title="Ganti tema" onclick="toggleTheme()">🌙</button>
+      <button class="icon-btn" title="Riwayat aktivitas" onclick="openActivityLog()">📜</button>
+      <button class="icon-btn" title="Pengaturan" onclick="openSettings()">⚙️</button>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <input type="text" id="search-input" placeholder="Cari nama, catatan, atau tag..." oninput="onSearch()">
+    <select id="filter-category" onchange="onFilterChange()"><option value="">Semua kategori</option></select>
+    <select id="filter-tag" onchange="onFilterChange()"><option value="">Semua tag</option></select>
+    <div class="fav-toggle" id="fav-toggle" onclick="toggleFavFilter()">⭐ Favorit saja</div>
+    <select id="sort-select" onchange="onFilterChange()">
+      <option value="createdAt_desc">Terbaru ditambahkan</option>
+      <option value="createdAt_asc">Terlama ditambahkan</option>
+      <option value="updatedAt_desc">Terakhir diperbarui</option>
+      <option value="price_asc">Harga terendah</option>
+      <option value="price_desc">Harga tertinggi</option>
+      <option value="name_asc">Nama A-Z</option>
+      <option value="name_desc">Nama Z-A</option>
+      <option value="favorite_first">Favorit dahulu</option>
+    </select>
+    <div class="view-toggle">
+      <button id="view-grid" class="active" onclick="setView('grid')" title="Tampilan grid">▦</button>
+      <button id="view-list" onclick="setView('list')" title="Tampilan daftar">☰</button>
+    </div>
+    <label class="fav-toggle" style="cursor:pointer;">
+      <input type="checkbox" id="select-page-checkbox" onchange="toggleSelectPage(this.checked)" style="accent-color:var(--sakura-deep);">
+      Pilih halaman ini
+    </label>
+    <button class="btn btn-primary" onclick="openItemModal()">+ Tambah Barang</button>
+  </div>
+
+  <div class="bulk-bar" id="bulk-bar">
+    <span><strong id="bulk-count">0</strong> item dipilih</span>
+    <div class="spacer"></div>
+    <button class="btn btn-sm btn-soft" onclick="bulkFavorite(true)">⭐ Favoritkan</button>
+    <button class="btn btn-sm btn-ghost" onclick="bulkFavorite(false)">☆ Batal favorit</button>
+    <button class="btn btn-sm btn-outline-danger" id="bulk-delete-btn" onclick="bulkSoftDelete()">🗑 Hapus</button>
+    <button class="btn btn-sm btn-ghost" id="bulk-restore-btn" style="display:none" onclick="bulkRestore()">♻ Pulihkan</button>
+    <button class="btn btn-sm btn-danger" id="bulk-perm-btn" style="display:none" onclick="bulkPermanentDelete()">❌ Hapus Permanen</button>
+    <button class="btn btn-sm btn-ghost" onclick="clearSelection()">Batalkan</button>
+  </div>
+
+  <div id="grid-wrapper">
+    <div class="grid" id="item-grid"></div>
+    <div class="empty-state" id="empty-state" style="display:none;">
+      <span class="mark">🌸</span>
+      <div id="empty-text">Belum ada barang di wishlist. Tambahkan incaranmu yang pertama.</div>
+    </div>
+  </div>
+
+  <div class="pagination-bar">
+    <div id="range-text">Menampilkan 0 dari 0 barang</div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <select id="page-size-select" onchange="onPageSizeChange()">
+        <option value="6">6 / halaman</option>
+        <option value="12" selected>12 / halaman</option>
+        <option value="24">24 / halaman</option>
+        <option value="48">48 / halaman</option>
+        <option value="9999">Tampilkan semua</option>
+      </select>
+      <div class="page-btns" id="page-btns"></div>
+    </div>
+  </div>
+
+  <footer class="app-footer">disusun dengan tema washi &amp; sakura · data tersimpan di perangkatmu</footer>
+</div>
+
+<!-- ITEM FORM MODAL -->
+<div class="modal-backdrop" id="item-modal-backdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="item-modal-title"><span>🌸</span> Tambah Barang</h2>
+      <button class="close-x" onclick="closeItemModal()">✕</button>
+    </div>
+    <form id="item-form" novalidate>
+      <div class="field" id="field-name">
+        <label for="f-name">Nama barang *</label>
+        <input type="text" id="f-name" maxlength="100" placeholder="Misal: Kamera Fujifilm X100VI">
+        <div class="error">Nama wajib diisi (minimal 2 karakter).</div>
+      </div>
+      <div class="two-col">
+        <div class="field" id="field-price">
+          <label for="f-price">Harga (Rp) *</label>
+          <input type="number" id="f-price" min="0" step="1000" placeholder="0">
+          <div class="error">Harga wajib diisi, angka ≥ 0.</div>
+        </div>
+        <div class="field" id="field-category">
+          <label for="f-category">Kategori *</label>
+          <input type="text" id="f-category" list="category-list" maxlength="40" placeholder="Elektronik, Fashion, dll">
+          <datalist id="category-list"></datalist>
+          <div class="error">Kategori wajib diisi.</div>
+        </div>
+      </div>
+      <div class="field" id="field-link">
+        <label for="f-link">Link pembelian</label>
+        <input type="url" id="f-link" maxlength="500" placeholder="https://...">
+        <div class="error">Link harus diawali http:// atau https://</div>
+      </div>
+      <div class="field">
+        <label for="f-tags">Tag (tekan Enter untuk menambah)</label>
+        <div class="tag-input-wrap" id="tag-wrap">
+          <input type="text" id="f-tags" placeholder="tambah tag...">
+        </div>
+      </div>
+      <div class="field">
+        <label>Thumbnail</label>
+        <div class="thumb-upload">
+          <div class="thumb-preview" id="thumb-preview">🖼</div>
+          <input type="file" id="f-thumbnail" accept="image/*" onchange="handleThumbnailUpload(event)">
+        </div>
+      </div>
+      <div class="field">
+        <label for="f-notes">Catatan</label>
+        <textarea id="f-notes" maxlength="300" placeholder="Warna, ukuran, alasan ingin beli, dsb."></textarea>
+      </div>
+      <div class="settings-row">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;">
+          <span class="switch"><input type="checkbox" id="f-favorite"><span class="slider-round"></span></span>
+          Tandai sebagai favorit
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeItemModal()">Batal</button>
+        <button type="submit" class="btn btn-primary">Simpan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-backdrop" id="confirm-modal-backdrop">
+  <div class="modal confirm-modal">
+    <span class="mark" id="confirm-mark">⚠️</span>
+    <h2 id="confirm-title" style="justify-content:center;">Konfirmasi</h2>
+    <p id="confirm-message">Apakah kamu yakin?</p>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeConfirmModal()">Batal</button>
+      <button class="btn btn-danger" id="confirm-ok-btn">Ya, lanjutkan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ACTIVITY LOG MODAL -->
+<div class="modal-backdrop" id="log-modal-backdrop">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-head">
+      <h2><span>📜</span> Riwayat Aktivitas</h2>
+      <button class="close-x" onclick="closeModalEl('log-modal-backdrop')">✕</button>
+    </div>
+    <div class="log-list" id="log-list"></div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-backdrop" id="settings-modal-backdrop">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-head">
+      <h2><span>⚙️</span> Pengaturan</h2>
+      <button class="close-x" onclick="closeModalEl('settings-modal-backdrop')">✕</button>
+    </div>
+
+    <div class="settings-section">
+      <h3>Tampilan</h3>
+      <div class="settings-row">
+        <span>Kelopak sakura berguguran</span>
+        <span class="switch"><input type="checkbox" id="setting-sakura" onchange="onToggleSakura(this.checked)"><span class="slider-round"></span></span>
+      </div>
+      <div class="settings-row">
+        <span>Jumlah item per halaman (default)</span>
+        <select id="setting-perpage" onchange="onDefaultPerPageChange()">
+          <option value="6">6</option><option value="12">12</option><option value="24">24</option><option value="48">48</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Ekspor data</h3>
+      <div class="export-btns">
+        <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⇩ CSV</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportExcel()">⇩ Excel</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportPDF()">⇩ PDF</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Impor data</h3>
+      <div class="import-btns">
+        <label class="btn btn-ghost btn-sm" style="cursor:pointer;">
+          ⇧ Impor CSV / Excel
+          <input type="file" id="import-file-input" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleImportFile(event)">
+        </label>
+      </div>
+      <div style="font-size:11.5px;color:var(--text-soft);margin-top:6px;">Kolom yang dikenali: nama, harga, kategori, tag, link, catatan, favorit. Data baru akan ditambahkan, bukan menimpa.</div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Reset</h3>
+      <div class="export-btns">
+        <button class="btn btn-outline-danger btn-sm" onclick="confirmResetData()">Reset data barang</button>
+        <button class="btn btn-outline-danger btn-sm" onclick="confirmResetSettings()">Reset pengaturan</button>
+        <button class="btn btn-danger btn-sm" onclick="confirmResetAll()">Reset semua</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   桜願 Wishlist Ku — vanilla JS, single file
+   ========================================================= */
+
+/* ---------- Storage keys ---------- */
+const K_ITEMS='wku_items', K_ACTIVITY='wku_activity', K_SETTINGS='wku_settings';
+
+/* ---------- State ---------- */
+let items = [];
+let activity = [];
+let settings = { theme:'light', perPage:12, seq:0, sakura:true };
+let selectedIds = new Set();
+let currentView = 'grid';
+let currentTab = 'active';
+let filters = { search:'', category:'', tag:'', favoriteOnly:false };
+let currentPage = 1;
+let editingId = null;
+let confirmAction = null;
+let currentTags = [];
+
+/* ---------- Utils ---------- */
+function uuid(){
+  if(crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{
+    const r=Math.random()*16|0, v=c=='x'?r:(r&0x3|0x8); return v.toString(16);
+  });
+}
+function nowISO(){ return new Date().toISOString(); }
+function fmtDate(iso){
+  if(!iso) return '-';
+  const d=new Date(iso);
+  return d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})+' '+d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+}
+function fmtPrice(n){
+  return (Number(n)||0).toLocaleString('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0});
+}
+function escapeHTML(s){
+  return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function saveItems(){ localStorage.setItem(K_ITEMS, JSON.stringify(items)); }
+function saveActivity(){
+  if(activity.length>300) activity = activity.slice(0,300);
+  localStorage.setItem(K_ACTIVITY, JSON.stringify(activity));
+}
+function saveSettings(){ localStorage.setItem(K_SETTINGS, JSON.stringify(settings)); }
+
+function loadData(){
+  try{ items = JSON.parse(localStorage.getItem(K_ITEMS)) || []; }catch(e){ items=[]; }
+  try{ activity = JSON.parse(localStorage.getItem(K_ACTIVITY)) || []; }catch(e){ activity=[]; }
+  try{ settings = Object.assign({theme:'light',perPage:12,seq:0,sakura:true}, JSON.parse(localStorage.getItem(K_SETTINGS))||{}); }catch(e){}
+}
+
+function logActivity(action, detail){
+  activity.unshift({ id:uuid(), action, detail, time: nowISO() });
+  saveActivity();
+}
+
+/* ---------- Toast ---------- */
+function showToast(type, message){
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = 'toast '+type;
+  const icon = {success:'✅',error:'⛔',info:'🌸',warning:'⚠️'}[type]||'🌸';
+  el.innerHTML = `<span>${icon}</span><span class="msg">${escapeHTML(message)}</span><button aria-label="Tutup">✕</button>`;
+  el.querySelector('button').onclick=()=>el.remove();
+  container.appendChild(el);
+  setTimeout(()=>{ el.style.transition='opacity .4s'; el.style.opacity='0'; setTimeout(()=>el.remove(),400); }, 3800);
+}
+
+/* ---------- Theme ---------- */
+function applyTheme(){
+  document.documentElement.setAttribute('data-theme', settings.theme);
+  document.getElementById('theme-toggle').textContent = settings.theme==='dark' ? '☀️' : '🌙';
+}
+function toggleTheme(){
+  settings.theme = settings.theme==='dark' ? 'light' : 'dark';
+  saveSettings(); applyTheme();
+}
+
+/* ---------- Modal helpers ---------- */
+function openModalEl(id){ document.getElementById(id).classList.add('open'); }
+function closeModalEl(id){ document.getElementById(id).classList.remove('open'); }
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape'){
+    ['item-modal-backdrop','confirm-modal-backdrop','log-modal-backdrop','settings-modal-backdrop'].forEach(id=>closeModalEl(id));
+  }
+});
+document.querySelectorAll('.modal-backdrop').forEach(bd=>{
+  bd.addEventListener('click', e=>{ if(e.target===bd) bd.classList.remove('open'); });
+});
+
+/* ---------- Confirm modal ---------- */
+function openConfirm(title, message, mark, okLabel, onOk){
+  document.getElementById('confirm-title').innerHTML = title;
+  document.getElementById('confirm-message').textContent = message;
+  document.getElementById('confirm-mark').textContent = mark || '⚠️';
+  const btn = document.getElementById('confirm-ok-btn');
+  btn.textContent = okLabel || 'Ya, lanjutkan';
+  confirmAction = onOk;
+  openModalEl('confirm-modal-backdrop');
+}
+function closeConfirmModal(){ closeModalEl('confirm-modal-backdrop'); confirmAction=null; }
+document.getElementById('confirm-ok-btn').addEventListener('click', ()=>{
+  if(confirmAction) confirmAction();
+  closeConfirmModal();
+});
+
+/* ---------- Tabs / view / filters ---------- */
+function setTab(tab){
+  currentTab = tab;
+  document.getElementById('tab-active').classList.toggle('active', tab==='active');
+  document.getElementById('tab-trash').classList.toggle('active', tab==='trash');
+  document.getElementById('bulk-delete-btn').style.display = tab==='active' ? '' : 'none';
+  document.getElementById('bulk-restore-btn').style.display = tab==='trash' ? '' : 'none';
+  document.getElementById('bulk-perm-btn').style.display = tab==='trash' ? '' : 'none';
+  clearSelection();
+  currentPage = 1;
+  render();
+}
+function setView(v){
+  currentView = v;
+  document.getElementById('view-grid').classList.toggle('active', v==='grid');
+  document.getElementById('view-list').classList.toggle('active', v==='list');
+  document.getElementById('grid-wrapper').classList.toggle('list-view', v==='list');
+  render();
+}
+function onSearch(){ filters.search = document.getElementById('search-input').value.trim().toLowerCase(); currentPage=1; render(); }
+function onFilterChange(){
+  filters.category = document.getElementById('filter-category').value;
+  filters.tag = document.getElementById('filter-tag').value;
+  currentPage = 1;
+  render();
+}
+function toggleFavFilter(){
+  filters.favoriteOnly = !filters.favoriteOnly;
+  document.getElementById('fav-toggle').classList.toggle('active', filters.favoriteOnly);
+  currentPage = 1;
+  render();
+}
+function onPageSizeChange(){
+  currentPage = 1;
+  render();
+}
+
+/* ---------- Derived lists ---------- */
+function getFilteredSorted(){
+  let list = items.filter(it => it.status === currentTab);
+  const s = filters.search;
+  if(s){
+    list = list.filter(it =>
+      it.name.toLowerCase().includes(s) ||
+      (it.notes||'').toLowerCase().includes(s) ||
+      (it.tags||[]).some(t=>t.toLowerCase().includes(s))
+    );
+  }
+  if(filters.category) list = list.filter(it=>it.category===filters.category);
+  if(filters.tag) list = list.filter(it=>(it.tags||[]).includes(filters.tag));
+  if(filters.favoriteOnly) list = list.filter(it=>it.favorite);
+
+  const sortBy = document.getElementById('sort-select').value;
+  const sorters = {
+    createdAt_desc:(a,b)=>new Date(b.createdAt)-new Date(a.createdAt),
+    createdAt_asc:(a,b)=>new Date(a.createdAt)-new Date(b.createdAt),
+    updatedAt_desc:(a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt),
+    price_asc:(a,b)=>a.price-b.price,
+    price_desc:(a,b)=>b.price-a.price,
+    name_asc:(a,b)=>a.name.localeCompare(b.name),
+    name_desc:(a,b)=>b.name.localeCompare(a.name),
+    favorite_first:(a,b)=>(b.favorite?1:0)-(a.favorite?1:0) || new Date(b.createdAt)-new Date(a.createdAt),
+  };
+  list.sort(sorters[sortBy] || sorters.createdAt_desc);
+  return list;
+}
+
+/* ---------- Filter option population ---------- */
+function refreshFilterOptions(){
+  const cats = [...new Set(items.map(i=>i.category).filter(Boolean))].sort();
+  const tags = [...new Set(items.flatMap(i=>i.tags||[]))].sort();
+  const catSel = document.getElementById('filter-category');
+  const tagSel = document.getElementById('filter-tag');
+  const curCat = catSel.value, curTag = tagSel.value;
+  catSel.innerHTML = '<option value="">Semua kategori</option>' + cats.map(c=>`<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join('');
+  tagSel.innerHTML = '<option value="">Semua tag</option>' + tags.map(t=>`<option value="${escapeHTML(t)}">${escapeHTML(t)}</option>`).join('');
+  catSel.value = cats.includes(curCat) ? curCat : '';
+  tagSel.value = tags.includes(curTag) ? curTag : '';
+  document.getElementById('category-list').innerHTML = cats.map(c=>`<option value="${escapeHTML(c)}">`).join('');
+}
+
+/* ---------- Render ---------- */
+function render(){
+  document.getElementById('trash-count').textContent = items.filter(i=>i.status==='trash').length;
+  refreshFilterOptions();
+  const list = getFilteredSorted();
+  const pageSize = parseInt(document.getElementById('page-size-select').value,10);
+  const totalPages = Math.max(1, Math.ceil(list.length/pageSize));
+  if(currentPage>totalPages) currentPage = totalPages;
+  const start = (currentPage-1)*pageSize;
+  const pageItems = list.slice(start, start+pageSize);
+
+  const grid = document.getElementById('item-grid');
+  const empty = document.getElementById('empty-state');
+  document.getElementById('empty-text').textContent = currentTab==='trash'
+    ? 'Sampah kosong. Barang yang dihapus akan muncul di sini.'
+    : (items.length===0 ? 'Belum ada barang di wishlist. Tambahkan incaranmu yang pertama.' : 'Tidak ada barang yang cocok dengan filter saat ini.');
+
+  if(pageItems.length===0){
+    grid.innerHTML=''; empty.style.display='block';
+  }else{
+    empty.style.display='none';
+    grid.innerHTML = pageItems.map(cardHTML).join('');
+  }
+
+  // range text
+  const rt = document.getElementById('range-text');
+  rt.textContent = list.length===0 ? 'Menampilkan 0 dari 0 barang'
+    : `Menampilkan ${start+1}-${Math.min(start+pageSize,list.length)} dari ${list.length} barang`;
+
+  // pagination buttons
+  const pb = document.getElementById('page-btns');
+  let html = `<button ${currentPage===1?'disabled':''} onclick="gotoPage(${currentPage-1})">‹</button>`;
+  const windowSize=5;
+  let from = Math.max(1, currentPage-Math.floor(windowSize/2));
+  let to = Math.min(totalPages, from+windowSize-1);
+  from = Math.max(1, to-windowSize+1);
+  if(from>1) html += `<button onclick="gotoPage(1)">1</button>` + (from>2?'<span style="padding:0 4px;">…</span>':'');
+  for(let p=from;p<=to;p++) html += `<button class="${p===currentPage?'active':''}" onclick="gotoPage(${p})">${p}</button>`;
+  if(to<totalPages) html += (to<totalPages-1?'<span style="padding:0 4px;">…</span>':'') + `<button onclick="gotoPage(${totalPages})">${totalPages}</button>`;
+  html += `<button ${currentPage===totalPages?'disabled':''} onclick="gotoPage(${currentPage+1})">›</button>`;
+  pb.innerHTML = html;
+
+  updateBulkBar();
+  document.getElementById('select-page-checkbox').checked = pageItems.length>0 && pageItems.every(it=>selectedIds.has(it.id));
+}
+function gotoPage(p){ currentPage=p; render(); }
+
+function cardHTML(it){
+  const thumb = it.thumbnail ? `<img src="${it.thumbnail}" alt="">` : '🎁';
+  const tagsHTML = (it.tags||[]).map(t=>`<span class="badge tag">#${escapeHTML(t)}</span>`).join('');
+  const linkBtn = it.link ? `<a class="btn btn-soft btn-sm" href="${escapeHTML(it.link)}" target="_blank" rel="noopener">🔗 Beli</a>` : '';
+  const checked = selectedIds.has(it.id) ? 'checked' : '';
+  let actionButtons = '';
+  if(it.status==='active'){
+    actionButtons = `${linkBtn}<button class="btn btn-ghost btn-sm" onclick="openItemModal('${it.id}')">✎ Edit</button><button class="btn btn-outline-danger btn-sm" onclick="deleteItem('${it.id}')">🗑</button>`;
+  }else{
+    actionButtons = `<button class="btn btn-ghost btn-sm" onclick="restoreItem('${it.id}')">♻ Pulihkan</button><button class="btn btn-danger btn-sm" onclick="permanentDeleteItem('${it.id}')">❌ Hapus</button>`;
+  }
+  return `<div class="card" data-id="${it.id}">
+    <input type="checkbox" class="select-box" ${checked} onchange="toggleSelect('${it.id}', this.checked)">
+    <button class="fav-btn ${it.favorite?'is-fav':''}" onclick="toggleFavorite('${it.id}')" title="Favorit">${it.favorite?'★':'☆'}</button>
+    <div class="thumb">${thumb}</div>
+    <div class="body">
+      <h3>${escapeHTML(it.name)}</h3>
+      <div class="price">${fmtPrice(it.price)}</div>
+      <div class="meta-row"><span class="badge cat">${escapeHTML(it.category||'-')}</span>${tagsHTML}</div>
+      ${it.notes?`<div class="notes">${escapeHTML(it.notes)}</div>`:''}
+      <div class="actions">${actionButtons}</div>
+    </div>
+  </div>`;
+}
+
+/* ---------- Selection / bulk ---------- */
+function toggleSelect(id, checked){
+  if(checked) selectedIds.add(id); else selectedIds.delete(id);
+  updateBulkBar();
+}
+function toggleSelectPage(checked){
+  const list = getFilteredSorted();
+  const pageSize = parseInt(document.getElementById('page-size-select').value,10);
+  const start = (currentPage-1)*pageSize;
+  const pageItems = list.slice(start,start+pageSize);
+  pageItems.forEach(it=> checked ? selectedIds.add(it.id) : selectedIds.delete(it.id));
+  render();
+}
+function clearSelection(){ selectedIds.clear(); updateBulkBar(); document.querySelectorAll('.select-box').forEach(cb=>cb.checked=false); }
+function updateBulkBar(){
+  const bar = document.getElementById('bulk-bar');
+  document.getElementById('bulk-count').textContent = selectedIds.size;
+  bar.classList.toggle('show', selectedIds.size>0);
+}
+function bulkFavorite(val){
+  let n=0;
+  items.forEach(it=>{ if(selectedIds.has(it.id)){ it.favorite=val; it.updatedAt=nowISO(); n++; } });
+  saveItems(); logActivity(val?'Favoritkan massal':'Batal favorit massal', `${n} barang`);
+  showToast('success', `${n} barang ${val?'ditandai favorit':'dibatalkan favoritnya'}.`);
+  render();
+}
+function bulkSoftDelete(){
+  openConfirm('Hapus barang terpilih?','Barang akan dipindahkan ke sampah dan bisa dipulihkan nanti.','🗑','Ya, hapus', ()=>{
+    let n=0;
+    items.forEach(it=>{ if(selectedIds.has(it.id) && it.status==='active'){ it.status='trash'; it.deletedAt=nowISO(); n++; } });
+    saveItems(); logActivity('Hapus massal (soft delete)', `${n} barang`);
+    showToast('success', `${n} barang dipindahkan ke sampah.`);
+    clearSelection(); render();
+  });
+}
+function bulkRestore(){
+  let n=0;
+  items.forEach(it=>{ if(selectedIds.has(it.id) && it.status==='trash'){ it.status='active'; it.deletedAt=null; it.updatedAt=nowISO(); n++; } });
+  saveItems(); logActivity('Pulihkan massal', `${n} barang`);
+  showToast('success', `${n} barang dipulihkan.`);
+  clearSelection(); render();
+}
+function bulkPermanentDelete(){
+  openConfirm('Hapus permanen barang terpilih?','Tindakan ini tidak dapat dibatalkan. Data akan hilang selamanya.','❌','Hapus permanen', ()=>{
+    const n = selectedIds.size;
+    items = items.filter(it=>!selectedIds.has(it.id));
+    saveItems(); logActivity('Hapus permanen massal', `${n} barang`);
+    showToast('success', `${n} barang dihapus permanen.`);
+    clearSelection(); render();
+  });
+}
+
+/* ---------- Single item actions ---------- */
+function toggleFavorite(id){
+  const it = items.find(i=>i.id===id); if(!it) return;
+  it.favorite = !it.favorite; it.updatedAt = nowISO();
+  saveItems(); logActivity(it.favorite?'Tandai favorit':'Batal favorit', it.name);
+  render();
+}
+function deleteItem(id){
+  const it = items.find(i=>i.id===id); if(!it) return;
+  openConfirm('Hapus barang ini?', `"${it.name}" akan dipindahkan ke sampah.`, '🗑', 'Ya, hapus', ()=>{
+    it.status='trash'; it.deletedAt=nowISO();
+    saveItems(); logActivity('Hapus (soft delete)', it.name);
+    showToast('success','Barang dipindahkan ke sampah.');
+    render();
+  });
+}
+function restoreItem(id){
+  const it = items.find(i=>i.id===id); if(!it) return;
+  it.status='active'; it.deletedAt=null; it.updatedAt=nowISO();
+  saveItems(); logActivity('Pulihkan', it.name);
+  showToast('success','Barang dipulihkan.');
+  render();
+}
+function permanentDeleteItem(id){
+  const it = items.find(i=>i.id===id); if(!it) return;
+  openConfirm('Hapus permanen?', `"${it.name}" akan dihapus selamanya dan tidak bisa dipulihkan.`, '❌', 'Hapus permanen', ()=>{
+    items = items.filter(i=>i.id!==id);
+    saveItems(); logActivity('Hapus permanen', it.name);
+    showToast('success','Barang dihapus permanen.');
+    render();
+  });
+}
+
+/* ---------- Item form modal ---------- */
+function renderTagChips(){
+  const wrap = document.getElementById('tag-wrap');
+  wrap.querySelectorAll('.tag-chip').forEach(c=>c.remove());
+  const input = document.getElementById('f-tags');
+  currentTags.forEach(t=>{
+    const chip = document.createElement('span');
+    chip.className='tag-chip';
+    chip.innerHTML = `#${escapeHTML(t)} <button type="button">✕</button>`;
+    chip.querySelector('button').onclick=()=>{ currentTags = currentTags.filter(x=>x!==t); renderTagChips(); };
+    wrap.insertBefore(chip, input);
+  });
+}
+document.getElementById('f-tags').addEventListener('keydown', e=>{
+  if(e.key==='Enter'){
+    e.preventDefault();
+    const v = e.target.value.trim().replace(/^#/,'');
+    if(v && !currentTags.includes(v)){ currentTags.push(v); renderTagChips(); }
+    e.target.value='';
+  }else if(e.key==='Backspace' && e.target.value===''&& currentTags.length){
+    currentTags.pop(); renderTagChips();
+  }
+});
+
+let pendingThumbnail = '';
+function resizeImage(file, maxW=480, quality=0.75){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = e=>{
+      const img = new Image();
+      img.onload = ()=>{
+        const scale = Math.min(1, maxW/img.width);
+        const w = Math.round(img.width*scale), h = Math.round(img.height*scale);
+        const canvas = document.createElement('canvas');
+        canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+function handleThumbnailUpload(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  if(!file.type.startsWith('image/')){ showToast('error','File harus berupa gambar.'); e.target.value=''; return; }
+  if(file.size > 6*1024*1024){ showToast('error','Ukuran gambar maksimal 6MB.'); e.target.value=''; return; }
+  resizeImage(file).then(dataUrl=>{
+    pendingThumbnail = dataUrl;
+    document.getElementById('thumb-preview').innerHTML = `<img src="${dataUrl}" alt="">`;
+  }).catch(()=> showToast('error','Gagal memproses gambar.'));
+}
+
+function openItemModal(id=null){
+  editingId = id;
+  const form = document.getElementById('item-form');
+  form.reset();
+  currentTags = [];
+  pendingThumbnail = '';
+  document.getElementById('thumb-preview').innerHTML = '🖼';
+  clearFieldErrors();
+  if(id){
+    const it = items.find(i=>i.id===id);
+    document.getElementById('item-modal-title').innerHTML = '<span>✎</span> Edit Barang';
+    document.getElementById('f-name').value = it.name;
+    document.getElementById('f-price').value = it.price;
+    document.getElementById('f-category').value = it.category;
+    document.getElementById('f-link').value = it.link||'';
+    document.getElementById('f-notes').value = it.notes||'';
+    document.getElementById('f-favorite').checked = !!it.favorite;
+    currentTags = [...(it.tags||[])];
+    if(it.thumbnail){ pendingThumbnail = it.thumbnail; document.getElementById('thumb-preview').innerHTML = `<img src="${it.thumbnail}" alt="">`; }
+  }else{
+    document.getElementById('item-modal-title').innerHTML = '<span>🌸</span> Tambah Barang';
+  }
+  renderTagChips();
+  openModalEl('item-modal-backdrop');
+  setTimeout(()=>document.getElementById('f-name').focus(), 50);
+}
+function closeItemModal(){ closeModalEl('item-modal-backdrop'); editingId=null; }
+function clearFieldErrors(){
+  ['field-name','field-price','field-category','field-link'].forEach(f=>document.getElementById(f).classList.remove('invalid'));
+}
+function setFieldError(fieldId, invalid){
+  document.getElementById(fieldId).classList.toggle('invalid', invalid);
+}
+
+document.getElementById('item-form').addEventListener('submit', function(e){
+  e.preventDefault();
+  clearFieldErrors();
+  const name = document.getElementById('f-name').value.trim();
+  const priceStr = document.getElementById('f-price').value;
+  const category = document.getElementById('f-category').value.trim();
+  const link = document.getElementById('f-link').value.trim();
+  const notes = document.getElementById('f-notes').value.trim();
+  const favorite = document.getElementById('f-favorite').checked;
+
+  let valid = true;
+  if(name.length<2){ setFieldError('field-name',true); valid=false; }
+  const price = parseFloat(priceStr);
+  if(priceStr==='' || isNaN(price) || price<0){ setFieldError('field-price',true); valid=false; }
+  if(category.length<1){ setFieldError('field-category',true); valid=false; }
+  if(link && !/^https?:\/\/.+/i.test(link)){ setFieldError('field-link',true); valid=false; }
+  if(!valid){ showToast('error','Periksa kembali data yang dimasukkan.'); return; }
+
+  if(editingId){
+    const it = items.find(i=>i.id===editingId);
+    Object.assign(it, { name, price, category, link, notes, favorite, tags:[...currentTags], thumbnail: pendingThumbnail, updatedAt: nowISO() });
+    saveItems(); logActivity('Perbarui barang', name);
+    showToast('success','Perubahan disimpan.');
+  }else{
+    settings.seq = (settings.seq||0)+1;
+    saveSettings();
+    const it = {
+      id: uuid(), seq: settings.seq, name, price, category, link, notes, favorite,
+      tags:[...currentTags], thumbnail: pendingThumbnail, status:'active',
+      createdAt: nowISO(), updatedAt: nowISO(), deletedAt: null
+    };
+    items.unshift(it);
+    saveItems(); logActivity('Tambah barang', name);
+    showToast('success','Barang baru ditambahkan ke wishlist.');
+  }
+  closeItemModal();
+  render();
+});
+
+/* ---------- Sakura falling animation ---------- */
+let sakuraCtx, sakuraPetals=[], sakuraAnimId=null;
+function initSakuraCanvas(){
+  const canvas = document.getElementById('sakura-canvas');
+  sakuraCtx = canvas.getContext('2d');
+  function resize(){ canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  window.addEventListener('resize', resize); resize();
+  const count = window.innerWidth<640 ? 16 : 28;
+  sakuraPetals = Array.from({length:count}, makePetal);
+}
+function makePetal(){
+  return {
+    x: Math.random()*window.innerWidth,
+    y: Math.random()*-window.innerHeight,
+    size: 8+Math.random()*10,
+    speedY: 0.4+Math.random()*0.9,
+    speedX: Math.random()*0.6-0.3,
+    rot: Math.random()*360,
+    rotSpeed: Math.random()*1.4-0.7,
+    sway: Math.random()*2,
+    swayOffset: Math.random()*Math.PI*2,
+  };
+}
+function drawPetal(p){
+  sakuraCtx.save();
+  sakuraCtx.translate(p.x,p.y);
+  sakuraCtx.rotate(p.rot*Math.PI/180);
+  sakuraCtx.beginPath();
+  const s=p.size;
+  sakuraCtx.moveTo(0,-s/2);
+  sakuraCtx.bezierCurveTo(s/2,-s/2, s/2,s/2, 0,s/2);
+  sakuraCtx.bezierCurveTo(-s/2,s/2, -s/2,-s/2, 0,-s/2);
+  const grad = sakuraCtx.createLinearGradient(0,-s/2,0,s/2);
+  grad.addColorStop(0,'rgba(240,175,196,0.85)');
+  grad.addColorStop(1,'rgba(228,160,183,0.55)');
+  sakuraCtx.fillStyle = grad;
+  sakuraCtx.fill();
+  sakuraCtx.restore();
+}
+function animateSakura(t){
+  if(!settings.sakura){ sakuraCtx.clearRect(0,0,sakuraCtx.canvas.width,sakuraCtx.canvas.height); sakuraAnimId=requestAnimationFrame(animateSakura); return; }
+  sakuraCtx.clearRect(0,0,sakuraCtx.canvas.width,sakuraCtx.canvas.height);
+  sakuraPetals.forEach(p=>{
+    p.y += p.speedY;
+    p.x += p.speedX + Math.sin((t/1000)+p.swayOffset)*p.sway*0.05;
+    p.rot += p.rotSpeed;
+    if(p.y > window.innerHeight+20){ Object.assign(p, makePetal(), {y:-20}); }
+    drawPetal(p);
+  });
+  sakuraAnimId = requestAnimationFrame(animateSakura);
+}
+function onToggleSakura(checked){
+  settings.sakura = checked; saveSettings();
+}
+
+/* ---------- Export ---------- */
+function activeExportRows(){
+  return getExportableItems().map(it=>({
+    No: it.seq, Nama: it.name, Harga: it.price, Kategori: it.category,
+    Tag: (it.tags||[]).join('; '), Link: it.link||'', Catatan: it.notes||'',
+    Favorit: it.favorite?'Ya':'Tidak', Status: it.status==='trash'?'Sampah':'Aktif',
+    Dibuat: fmtDate(it.createdAt), Diperbarui: fmtDate(it.updatedAt)
+  }));
+}
+function getExportableItems(){ return items; }
+
+function downloadBlob(content, filename, mime){
+  const blob = new Blob([content], {type:mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=filename; document.body.appendChild(a); a.click();
+  a.remove(); URL.revokeObjectURL(url);
+}
+function toCSV(rows){
+  if(rows.length===0) return '';
+  const headers = Object.keys(rows[0]);
+  const esc = v => `"${String(v??'').replace(/"/g,'""')}"`;
+  const lines = [headers.join(',')].concat(rows.map(r=>headers.map(h=>esc(r[h])).join(',')));
+  return '\uFEFF'+lines.join('\r\n');
+}
+function exportCSV(){
+  const rows = activeExportRows();
+  if(rows.length===0){ showToast('warning','Tidak ada data untuk diekspor.'); return; }
+  downloadBlob(toCSV(rows), 'wishlist.csv', 'text/csv;charset=utf-8;');
+  logActivity('Ekspor CSV', `${rows.length} baris`);
+  showToast('success','Data diekspor sebagai CSV.');
+}
+function exportExcel(){
+  if(typeof XLSX==='undefined'){ showToast('error','Pustaka Excel belum siap, coba lagi sesaat lagi.'); return; }
+  const rows = activeExportRows();
+  if(rows.length===0){ showToast('warning','Tidak ada data untuk diekspor.'); return; }
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Wishlist');
+  XLSX.writeFile(wb, 'wishlist.xlsx');
+  logActivity('Ekspor Excel', `${rows.length} baris`);
+  showToast('success','Data diekspor sebagai Excel.');
+}
+function exportPDF(){
+  if(typeof window.jspdf==='undefined'){ showToast('error','Pustaka PDF belum siap, coba lagi sesaat lagi.'); return; }
+  const rows = activeExportRows();
+  if(rows.length===0){ showToast('warning','Tidak ada data untuk diekspor.'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({orientation:'landscape'});
+  doc.setFontSize(14);
+  doc.text('Wishlist Ku', 14, 14);
+  doc.autoTable({
+    startY: 20,
+    head: [['No','Nama','Harga','Kategori','Tag','Favorit','Status','Dibuat']],
+    body: rows.map(r=>[r.No, r.Nama, fmtPrice(r.Harga), r.Kategori, r.Tag, r.Favorit, r.Status, r.Dibuat]),
+    styles:{fontSize:8},
+    headStyles:{fillColor:[188,74,60]}
+  });
+  doc.save('wishlist.pdf');
+  logActivity('Ekspor PDF', `${rows.length} baris`);
+  showToast('success','Data diekspor sebagai PDF.');
+}
+
+/* ---------- Import ---------- */
+function parseCSV(text){
+  const rows=[]; let row=[]; let field=''; let inQuotes=false;
+  text = text.replace(/^\uFEFF/,'');
+  for(let i=0;i<text.length;i++){
+    const c = text[i];
+    if(inQuotes){
+      if(c==='"'){ if(text[i+1]==='"'){ field+='"'; i++; } else inQuotes=false; }
+      else field+=c;
+    }else{
+      if(c==='"') inQuotes=true;
+      else if(c===','){ row.push(field); field=''; }
+      else if(c==='\r'){ /* skip */ }
+      else if(c==='\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+      else field+=c;
+    }
+  }
+  if(field.length || row.length){ row.push(field); rows.push(row); }
+  if(rows.length===0) return [];
+  const headers = rows[0].map(h=>h.trim());
+  return rows.slice(1).filter(r=>r.length>1 || r[0]!=='').map(r=>{
+    const obj={}; headers.forEach((h,idx)=>obj[h]=r[idx]??''); return obj;
+  });
+}
+function mapImportedRow(row){
+  const get = (...keys)=>{ for(const k of keys){ for(const rk in row){ if(rk.toLowerCase()===k) return row[rk]; } } return ''; };
+  const name = String(get('nama','name')||'').trim();
+  const price = parseFloat(String(get('harga','price')||'0').toString().replace(/[^0-9.-]/g,'')) || 0;
+  const category = String(get('kategori','category')||'Lainnya').trim() || 'Lainnya';
+  const tagRaw = String(get('tag','tags')||'');
+  const tags = tagRaw.split(/[;,]/).map(t=>t.trim()).filter(Boolean);
+  const link = String(get('link','url')||'').trim();
+  const notes = String(get('catatan','notes')||'').trim();
+  const favRaw = String(get('favorit','favorite')||'').toLowerCase();
+  const favorite = favRaw==='ya' || favRaw==='yes' || favRaw==='true' || favRaw==='1';
+  return {name, price, category, tags, link, notes, favorite};
+}
+function importRows(rows){
+  let n=0;
+  rows.forEach(r=>{
+    const m = mapImportedRow(r);
+    if(!m.name) return;
+    settings.seq = (settings.seq||0)+1;
+    items.unshift({
+      id:uuid(), seq:settings.seq, name:m.name, price:m.price, category:m.category,
+      tags:m.tags, link: /^https?:\/\//i.test(m.link)?m.link:'', notes:m.notes, favorite:m.favorite,
+      thumbnail:'', status:'active', createdAt:nowISO(), updatedAt:nowISO(), deletedAt:null
+    });
+    n++;
+  });
+  saveSettings(); saveItems();
+  logActivity('Impor data', `${n} barang ditambahkan`);
+  showToast('success', `${n} barang berhasil diimpor.`);
+  render();
+}
+function handleImportFile(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+  if(ext==='csv'){
+    const reader = new FileReader();
+    reader.onload = ev=>{
+      const rows = parseCSV(ev.target.result);
+      if(rows.length===0){ showToast('warning','File CSV kosong atau tidak dikenali.'); return; }
+      openConfirm('Impor data?', `Ditemukan ${rows.length} baris. Data akan ditambahkan ke wishlist.`, '⇧', 'Ya, impor', ()=>importRows(rows));
+    };
+    reader.readAsText(file);
+  }else if(ext==='xlsx'||ext==='xls'){
+    if(typeof XLSX==='undefined'){ showToast('error','Pustaka Excel belum siap, coba lagi sesaat lagi.'); return; }
+    const reader = new FileReader();
+    reader.onload = ev=>{
+      const data = new Uint8Array(ev.target.result);
+      const wb = XLSX.read(data, {type:'array'});
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, {defval:''});
+      if(rows.length===0){ showToast('warning','File Excel kosong atau tidak dikenali.'); return; }
+      openConfirm('Impor data?', `Ditemukan ${rows.length} baris. Data akan ditambahkan ke wishlist.`, '⇧', 'Ya, impor', ()=>importRows(rows));
+    };
+    reader.readAsArrayBuffer(file);
+  }else{
+    showToast('error','Format file tidak didukung. Gunakan CSV atau Excel.');
+  }
+  e.target.value='';
+}
+
+/* ---------- Reset ---------- */
+function confirmResetData(){
+  openConfirm('Reset semua data barang?','Seluruh barang wishlist dan sampah akan dihapus permanen. Riwayat aktivitas tetap tersimpan.','🗑','Ya, reset data', ()=>{
+    items = []; saveItems(); logActivity('Reset data barang','-');
+    showToast('success','Data barang telah direset.'); clearSelection(); render();
+  });
+}
+function confirmResetSettings(){
+  openConfirm('Reset pengaturan?','Tema, jumlah per halaman, dan opsi sakura akan kembali ke default.','⚙️','Ya, reset pengaturan', ()=>{
+    settings = { theme:'light', perPage:12, seq: settings.seq, sakura:true };
+    saveSettings(); applyTheme(); applySettingsToUI();
+    logActivity('Reset pengaturan','-');
+    showToast('success','Pengaturan telah direset.'); render();
+  });
+}
+function confirmResetAll(){
+  openConfirm('Reset semua data & pengaturan?','Tindakan ini akan menghapus seluruh barang, riwayat aktivitas, dan pengaturan. Tidak dapat dibatalkan.','❌','Ya, reset semua', ()=>{
+    localStorage.removeItem(K_ITEMS); localStorage.removeItem(K_ACTIVITY); localStorage.removeItem(K_SETTINGS);
+    items=[]; activity=[]; settings={theme:'light',perPage:12,seq:0,sakura:true};
+    saveItems(); saveActivity(); saveSettings();
+    applyTheme(); applySettingsToUI(); clearSelection();
+    showToast('success','Semua data dan pengaturan telah direset.');
+    render();
+  });
+}
+
+/* ---------- Activity log modal ---------- */
+function openActivityLog(){
+  const list = document.getElementById('log-list');
+  if(activity.length===0){
+    list.innerHTML = '<div style="text-align:center;color:var(--text-soft);padding:20px;">Belum ada aktivitas tercatat.</div>';
+  }else{
+    list.innerHTML = activity.map(a=>`
+      <div class="log-item">
+        <div class="top"><span class="action">${escapeHTML(a.action)}</span><span>${fmtDate(a.time)}</span></div>
+        <div>${escapeHTML(a.detail||'')}</div>
+      </div>`).join('');
+  }
+  openModalEl('log-modal-backdrop');
+}
+
+/* ---------- Settings modal ---------- */
+function applySettingsToUI(){
+  document.getElementById('setting-sakura').checked = !!settings.sakura;
+  document.getElementById('setting-perpage').value = settings.perPage || 12;
+  document.getElementById('page-size-select').value = settings.perPage || 12;
+}
+function openSettings(){ applySettingsToUI(); openModalEl('settings-modal-backdrop'); }
+function onDefaultPerPageChange(){
+  settings.perPage = parseInt(document.getElementById('setting-perpage').value,10);
+  saveSettings();
+  document.getElementById('page-size-select').value = settings.perPage;
+  currentPage=1; render();
+}
+
+/* ---------- Loading overlay ---------- */
+function hideLoading(){
+  setTimeout(()=>{ document.getElementById('loading-overlay').classList.add('hide'); }, 1200);
+}
+
+/* ---------- Init ---------- */
+function init(){
+  loadData();
+  applyTheme();
+  document.getElementById('page-size-select').value = settings.perPage || 12;
+  setTab('active');
+  initSakuraCanvas();
+  requestAnimationFrame(animateSakura);
+  render();
+  hideLoading();
+}
+init();
+</script>
+</body>
+</html>
